@@ -1,0 +1,181 @@
+package net.teamfruit.easyresourcepack;
+
+import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public final class EasyResourcePack extends JavaPlugin {
+
+    public static Logger logger;
+
+    @Override
+    public void onEnable() {
+        // Plugin startup logic
+        logger = getLogger();
+        saveDefaultConfig();
+    }
+
+    @Override
+    public void onDisable() {
+        // Plugin shutdown logic
+    }
+
+    private String get(String[] args, int index) {
+        if (args.length > index)
+            return args[index];
+        return null;
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        String arg0 = get(args, 0);
+        String arg1 = get(args, 1);
+        String arg2 = get(args, 2);
+
+        if (arg0 == null)
+            return false;
+        if (arg1 == null)
+            return false;
+
+        Configuration config = getConfig();
+
+        switch (arg0) {
+            case "add": {
+                if (!sender.hasPermission("easyresourcepack.manage")) {
+                    sender.sendMessage(ChatColor.RED + "No Permission to manage resource pack");
+                    return true;
+                }
+                if (arg2 == null)
+                    return false;
+                sender.sendMessage(ChatColor.GREEN + "Calculating hash...");
+                ResourcePackUtils.downloadAndGetHash(arg2).thenAccept(result -> {
+                    if (!result.isPresent()) {
+                        sender.sendMessage(ChatColor.RED + "Failed to get resource pack");
+                        return;
+                    }
+
+                    config.set(String.format("packs.%s.url", arg1), arg2);
+                    config.set(String.format("packs.%s.hash", arg1), result.get());
+                    saveConfig();
+
+                    sender.sendMessage(ChatColor.GREEN + "Successfully registered resource pack!");
+                });
+            }
+            break;
+
+            case "remove": {
+                if (!sender.hasPermission("easyresourcepack.manage")) {
+                    sender.sendMessage(ChatColor.RED + "No Permission to manage resource pack");
+                    return true;
+                }
+
+                config.set(String.format("packs.%s", arg1), null);
+                saveConfig();
+
+                sender.sendMessage(ChatColor.GREEN + "Successfully unregistered resource pack!");
+            }
+            break;
+
+            case "apply": {
+                String url = config.getString(String.format("packs.%s.url", arg1));
+                String hash = config.getString(String.format("packs.%s.hash", arg1));
+
+                if (url == null || hash == null) {
+                    sender.sendMessage(ChatColor.RED + "No resource pack registered");
+                    return true;
+                }
+
+                List<Player> targets;
+                if (arg2 == null) {
+                    if (!(sender instanceof Player)) {
+                        sender.sendMessage(ChatColor.RED + "You must be a player");
+                        return true;
+                    }
+                    targets = Collections.singletonList((Player) sender);
+                } else {
+                    if (!sender.hasPermission("easyresourcepack.other")) {
+                        sender.sendMessage(ChatColor.RED + "No Permission to apply other player");
+                        return true;
+                    }
+
+                    if ("@a".equals(arg2))
+                        targets = new ArrayList<>(Bukkit.getOnlinePlayers());
+                    else {
+                        Player player = Bukkit.getPlayer(arg2);
+                        if (player == null) {
+                            sender.sendMessage(ChatColor.RED + "Player not found");
+                            return true;
+                        }
+                        targets = Collections.singletonList(player);
+                    }
+                }
+
+                targets.forEach(e -> e.setResourcePack(url, hash));
+
+                sender.sendMessage(ChatColor.GREEN + "Successfully applied resource pack!");
+            }
+            break;
+
+            default:
+                return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length <= 1)
+            return (sender.hasPermission("easyresourcepack.manage")
+                    ? Stream.of("apply", "add", "remove")
+                    : Stream.of("apply"))
+                    .filter(e -> e.startsWith(args[0])).collect(Collectors.toList());
+
+        else if (args.length == 2)
+            switch (args[0]) {
+                case "add": {
+                    return Collections.singletonList("<new name>");
+                }
+
+                case "remove":
+                case "apply": {
+                    Configuration config = getConfig();
+                    ConfigurationSection packs = config.getConfigurationSection("packs");
+                    if (packs == null)
+                        return Collections.emptyList();
+                    return packs.getKeys(false).stream()
+                            .filter(e -> e.startsWith(args[1])).collect(Collectors.toList());
+                }
+            }
+
+        else
+            switch (args[0]) {
+                case "add": {
+                    return Collections.singletonList("https://");
+                }
+
+                case "apply": {
+                    if (sender.hasPermission("easyresourcepack.other"))
+                        return Stream.concat(
+                                Stream.of("@a"),
+                                Bukkit.getOnlinePlayers().stream().map(Player::getName)
+                        ).filter(e -> e.startsWith(args[2])).collect(Collectors.toList());
+                    return Collections.emptyList();
+                }
+            }
+
+        return Collections.emptyList();
+    }
+}

@@ -1,0 +1,28 @@
+name: EasyResourcePack
+version: ${project.version}
+main: net.teamfruit.easyresourcepack.EasyResourcePack
+api-version: 1.15
+prefix: EasyResourcePack
+authors: [ Kamesuta ]
+description: Simple Server Resource Pack Manager
+
+commands:
+  erp:
+    aliases: ["easyresourcepack"]
+    usage: |-
+      /erp add <name> <url>
+      /erp remove <name>
+      /erp apply <name> <player|@a>
+    description: EasyResourcePack commands
+    permission: easyresourcepack
+
+permissions:
+  easyresourcepack:
+    description: EasyResourcePack commands
+    default: true
+  easyresourcepack.other:
+    description: EasyResourcePack apply other
+    default: op
+  easyresourcepack.manage:
+    description: EasyResourcePack add/remove commands
+    default: op
