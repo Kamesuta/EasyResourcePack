@@ -105,20 +105,21 @@ public final class EasyResourcePack extends JavaPlugin {
                     }
                     targets = Collections.singletonList((Player) sender);
                 } else {
-                    if (!sender.hasPermission("easyresourcepack.other")) {
-                        sender.sendMessage(ChatColor.RED + "No Permission to apply other player");
-                        return true;
-                    }
+                    targets = Bukkit.selectEntities(sender, arg2).stream()
+                            .filter(Player.class::isInstance)
+                            .map(Player.class::cast)
+                            .collect(Collectors.toList());
 
-                    if ("@a".equals(arg2))
-                        targets = new ArrayList<>(Bukkit.getOnlinePlayers());
-                    else {
-                        Player player = Bukkit.getPlayer(arg2);
-                        if (player == null) {
-                            sender.sendMessage(ChatColor.RED + "Player not found");
+                    if (targets.size() >= 2 || targets.stream().anyMatch(e -> !e.equals(sender))) {
+                        if (!sender.hasPermission("easyresourcepack.other")) {
+                            sender.sendMessage(ChatColor.RED + "No Permission to apply other player");
                             return true;
                         }
-                        targets = Collections.singletonList(player);
+                    }
+
+                    if (targets.isEmpty()) {
+                        sender.sendMessage(ChatColor.RED + "Player not found");
+                        return true;
                     }
                 }
 
@@ -169,7 +170,7 @@ public final class EasyResourcePack extends JavaPlugin {
                 case "apply": {
                     if (sender.hasPermission("easyresourcepack.other"))
                         return Stream.concat(
-                                Stream.of("@a"),
+                                Stream.of("@a", "@p", "@a[distance=.."),
                                 Bukkit.getOnlinePlayers().stream().map(Player::getName)
                         ).filter(e -> e.startsWith(args[2])).collect(Collectors.toList());
                     return Collections.emptyList();
