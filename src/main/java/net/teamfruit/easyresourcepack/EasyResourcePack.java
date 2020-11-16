@@ -8,6 +8,7 @@ import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -123,7 +124,12 @@ public final class EasyResourcePack extends JavaPlugin {
                     }
                 }
 
-                targets.forEach(e -> e.setResourcePack(url, hash));
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        targets.forEach(e -> e.setResourcePack(url, hash));
+                    }
+                }.runTaskLaterAsynchronously(this, 4);
 
                 sender.sendMessage(ChatColor.GREEN + "Successfully applied resource pack!");
             }
