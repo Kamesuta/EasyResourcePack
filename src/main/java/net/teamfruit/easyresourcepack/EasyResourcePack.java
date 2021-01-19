@@ -85,6 +85,10 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
 
                 config.set("packs.server-resourcepack.url", url);
                 config.set("packs.server-resourcepack.hash", hash);
+
+                if (url == null || hash == null)
+                    config.set("packs.server-resourcepack", null);
+
                 saveConfig();
 
                 sender.sendMessage(ChatColor.GREEN + "Successfully set server resource pack!");
@@ -108,11 +112,14 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                         return;
                     }
 
+                    ResourcePackUtils.PackResult pack = result.get();
+
                     config.set(String.format("packs.%s.url", arg1), arg2);
-                    config.set(String.format("packs.%s.hash", arg1), result.get());
+                    config.set(String.format("packs.%s.hash", arg1), pack.hash);
                     saveConfig();
 
                     sender.sendMessage(ChatColor.GREEN + "Successfully registered resource pack!");
+                    sender.sendMessage(ChatColor.GREEN + "Description: " + ChatColor.WHITE + pack.meta.pack.description);
                 });
             }
             break;
