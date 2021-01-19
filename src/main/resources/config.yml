@@ -1,1 +1,4 @@
 packs:
+  default:
+    url: https://cdn.discordapp.com/attachments/711308476516663366/801098921954902066/pack.zip
+    hash: 6A7C58F54EC86CA1C7C514B2DBB3F23E120B86F0
