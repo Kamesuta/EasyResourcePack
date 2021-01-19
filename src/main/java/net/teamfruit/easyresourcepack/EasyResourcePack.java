@@ -7,17 +7,19 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public final class EasyResourcePack extends JavaPlugin {
+public final class EasyResourcePack extends JavaPlugin implements Listener {
 
     public static Logger logger;
 
@@ -26,6 +28,8 @@ public final class EasyResourcePack extends JavaPlugin {
         // Plugin startup logic
         logger = getLogger();
         saveDefaultConfig();
+
+        getServer().getPluginManager().registerEvents(this, this);
     }
 
     @Override
@@ -39,6 +43,25 @@ public final class EasyResourcePack extends JavaPlugin {
         return null;
     }
 
+    @EventHandler
+    public void onLogin(PlayerLoginEvent event) {
+        Configuration config = getConfig();
+
+        String url = config.getString("packs.server-resourcepack.url");
+        String hash = config.getString("packs.server-resourcepack.hash");
+
+        Player player = event.getPlayer();
+
+        if (url != null && hash != null) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    player.setResourcePack(url, hash);
+                }
+            }.runTaskLaterAsynchronously(this, 4);
+        }
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String arg0 = get(args, 0);
@@ -47,13 +70,31 @@ public final class EasyResourcePack extends JavaPlugin {
 
         if (arg0 == null)
             return false;
-        if (arg1 == null)
-            return false;
 
         Configuration config = getConfig();
 
         switch (arg0) {
+            case "server-resourcepack": {
+                if (!sender.hasPermission("easyresourcepack.manage")) {
+                    sender.sendMessage(ChatColor.RED + "No Permission to manage resource pack");
+                    return true;
+                }
+
+                String url = (arg1 == null) ? null : config.getString(String.format("packs.%s.url", arg1));
+                String hash = (arg1 == null) ? null : config.getString(String.format("packs.%s.hash", arg1));
+
+                config.set("packs.server-resourcepack.url", url);
+                config.set("packs.server-resourcepack.hash", hash);
+                saveConfig();
+
+                sender.sendMessage(ChatColor.GREEN + "Successfully set server resource pack!");
+            }
+            break;
+
             case "add": {
+                if (arg1 == null)
+                    return false;
+
                 if (!sender.hasPermission("easyresourcepack.manage")) {
                     sender.sendMessage(ChatColor.RED + "No Permission to manage resource pack");
                     return true;
@@ -77,6 +118,9 @@ public final class EasyResourcePack extends JavaPlugin {
             break;
 
             case "remove": {
+                if (arg1 == null)
+                    return false;
+
                 if (!sender.hasPermission("easyresourcepack.manage")) {
                     sender.sendMessage(ChatColor.RED + "No Permission to manage resource pack");
                     return true;
@@ -90,6 +134,9 @@ public final class EasyResourcePack extends JavaPlugin {
             break;
 
             case "apply": {
+                if (arg1 == null)
+                    return false;
+
                 String url = config.getString(String.format("packs.%s.url", arg1));
                 String hash = config.getString(String.format("packs.%s.hash", arg1));
 
@@ -146,7 +193,7 @@ public final class EasyResourcePack extends JavaPlugin {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length <= 1)
             return (sender.hasPermission("easyresourcepack.manage")
-                    ? Stream.of("apply", "add", "remove")
+                    ? Stream.of("apply", "add", "server-resourcepack", "remove")
                     : Stream.of("apply"))
                     .filter(e -> e.startsWith(args[0])).collect(Collectors.toList());
 
@@ -157,6 +204,7 @@ public final class EasyResourcePack extends JavaPlugin {
                 }
 
                 case "remove":
+                case "server-resourcepack":
                 case "apply": {
                     Configuration config = getConfig();
                     ConfigurationSection packs = config.getConfigurationSection("packs");
