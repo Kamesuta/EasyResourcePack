@@ -107,19 +107,17 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                     return false;
                 sender.sendMessage(ChatColor.GREEN + "Calculating hash...");
                 ResourcePackUtils.downloadAndGetHash(arg2).thenAccept(result -> {
-                    if (!result.isPresent()) {
-                        sender.sendMessage(ChatColor.RED + "Failed to get resource pack");
+                    if (!result.success) {
+                        sender.sendMessage(ChatColor.RED + "Failed to get resource pack: " + ChatColor.GRAY + result.reason);
                         return;
                     }
 
-                    ResourcePackUtils.PackResult pack = result.get();
-
                     config.set(String.format("packs.%s.url", arg1), arg2);
-                    config.set(String.format("packs.%s.hash", arg1), pack.hash);
+                    config.set(String.format("packs.%s.hash", arg1), result.hash);
                     saveConfig();
 
                     sender.sendMessage(ChatColor.GREEN + "Successfully registered resource pack!");
-                    sender.sendMessage(ChatColor.GREEN + "Description: " + ChatColor.WHITE + pack.meta.pack.description);
+                    sender.sendMessage(ChatColor.GREEN + "Description: " + ChatColor.WHITE + result.meta.pack.description);
                 });
             }
             break;
