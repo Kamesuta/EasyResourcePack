@@ -12,7 +12,9 @@ commands:
     usage: |-
       /erp add <name> <url>
       /erp remove <name>
+      /erp server-resourcepack <name>
       /erp apply <name> <player|@a>
+      /erp apply-if-absent <name> <player|@a>
     description: EasyResourcePack commands
     permission: easyresourcepack
 
