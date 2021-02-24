@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -72,6 +73,8 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
             return false;
 
         Configuration config = getConfig();
+
+        boolean forceResourcePack = true;
 
         switch (arg0) {
             case "server-resourcepack": {
@@ -138,6 +141,8 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
             }
             break;
 
+            case "apply-if-absent":
+                forceResourcePack = false;
             case "apply": {
                 if (arg1 == null)
                     return false;
@@ -176,10 +181,15 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                     }
                 }
 
+                boolean finalForceResourcePack = forceResourcePack;
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        targets.forEach(e -> e.setResourcePack(url, hash));
+                        targets.forEach(e -> {
+                            if (e.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
+                                if (finalForceResourcePack || !e.hasResourcePack())
+                                    e.setResourcePack(url, hash);
+                        });
                     }
                 }.runTaskLaterAsynchronously(this, 4);
 
@@ -198,8 +208,8 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length <= 1)
             return (sender.hasPermission("easyresourcepack.manage")
-                    ? Stream.of("apply", "add", "server-resourcepack", "remove")
-                    : Stream.of("apply"))
+                    ? Stream.of("apply", "apply-if-absent", "add", "server-resourcepack", "remove")
+                    : Stream.of("apply", "apply-if-absent"))
                     .filter(e -> e.startsWith(args[0])).collect(Collectors.toList());
 
         else if (args.length == 2)
@@ -210,6 +220,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
 
                 case "remove":
                 case "server-resourcepack":
+                case "apply-if-absent":
                 case "apply": {
                     Configuration config = getConfig();
                     ConfigurationSection packs = config.getConfigurationSection("packs");
