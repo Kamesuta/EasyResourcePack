@@ -16,6 +16,10 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -23,6 +27,8 @@ import java.util.stream.Stream;
 public final class EasyResourcePack extends JavaPlugin implements Listener {
 
     public static Logger logger;
+
+    private final Map<UUID, AtomicReference<String>> lastHash = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
@@ -44,6 +50,10 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
         return null;
     }
 
+    private AtomicReference<String> getPlayerResourcePackHash(Player player) {
+        return lastHash.computeIfAbsent(player.getPlayerProfile().getId(), id -> new AtomicReference<>());
+    }
+
     @EventHandler
     public void onLogin(PlayerLoginEvent event) {
         Configuration config = getConfig();
@@ -52,14 +62,19 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
         String hash = config.getString("packs.server-resourcepack.hash");
 
         Player player = event.getPlayer();
+        AtomicReference<String> lastHash = getPlayerResourcePackHash(player);
 
         if (url != null && hash != null) {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    player.setResourcePack(url, hash);
+                    if (player.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
+                        player.setResourcePack(url, hash);
                 }
             }.runTaskLaterAsynchronously(this, 4);
+            lastHash.set(hash);
+        } else {
+            lastHash.set(null);
         }
     }
 
@@ -186,9 +201,14 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                     @Override
                     public void run() {
                         targets.forEach(e -> {
-                            if (e.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
-                                if (finalForceResourcePack || !e.hasResourcePack())
-                                    e.setResourcePack(url, hash);
+                            if (finalForceResourcePack || !e.hasResourcePack()) {
+                                AtomicReference<String> lastHash = getPlayerResourcePackHash(e);
+                                if (!hash.equals(lastHash.get())) {
+                                    if (e.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
+                                        e.setResourcePack(url, hash);
+                                    lastHash.set(hash);
+                                }
+                            }
                         });
                     }
                 }.runTaskLaterAsynchronously(this, 4);
