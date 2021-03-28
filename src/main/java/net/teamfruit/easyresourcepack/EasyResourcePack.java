@@ -6,18 +6,16 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
-import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import javax.xml.bind.DatatypeConverter;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -51,7 +49,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
     }
 
     private AtomicReference<String> getPlayerResourcePackHash(Player player) {
-        return lastHash.computeIfAbsent(player.getPlayerProfile().getId(), id -> new AtomicReference<>());
+        return lastHash.computeIfAbsent(player.getUniqueId(), id -> new AtomicReference<>());
     }
 
     @EventHandler
@@ -68,8 +66,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (player.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
-                        player.setResourcePack(url, hash);
+                    player.setResourcePack(url, DatatypeConverter.parseHexBinary(hash));
                 }
             }.runTaskLaterAsynchronously(this, 4);
             lastHash.set(hash);
@@ -171,14 +168,15 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                 }
 
                 List<Player> targets;
-                if (arg2 == null) {
+                Entity[] targetEntities = arg2 == null ? null : CommandUtils.getTargets(sender, arg2);
+                if (targetEntities == null) {
                     if (!(sender instanceof Player)) {
                         sender.sendMessage(ChatColor.RED + "You must be a player");
                         return true;
                     }
                     targets = Collections.singletonList((Player) sender);
                 } else {
-                    targets = Bukkit.selectEntities(sender, arg2).stream()
+                    targets = Arrays.stream(targetEntities)
                             .filter(Player.class::isInstance)
                             .map(Player.class::cast)
                             .collect(Collectors.toList());
@@ -201,11 +199,10 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                     @Override
                     public void run() {
                         targets.forEach(e -> {
-                            if (finalForceResourcePack || !e.hasResourcePack()) {
+                            if (finalForceResourcePack) {
                                 AtomicReference<String> lastHash = getPlayerResourcePackHash(e);
                                 if (!hash.equals(lastHash.get())) {
-                                    if (e.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
-                                        e.setResourcePack(url, hash);
+                                    e.setResourcePack(url, DatatypeConverter.parseHexBinary(hash));
                                     lastHash.set(hash);
                                 }
                             }

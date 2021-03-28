@@ -1,7 +1,7 @@
 name: EasyResourcePack
 version: ${project.version}
 main: net.teamfruit.easyresourcepack.EasyResourcePack
-api-version: 1.15
+api-version: 1.12
 prefix: EasyResourcePack
 authors: [ Kamesuta ]
 description: Simple Server Resource Pack Manager
