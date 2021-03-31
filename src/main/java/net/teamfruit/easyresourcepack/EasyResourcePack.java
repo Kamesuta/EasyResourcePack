@@ -15,7 +15,6 @@ import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import javax.xml.bind.DatatypeConverter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -241,7 +240,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                                 if (finalForceResourcePack || !hasResourcePack(e)) {
                                     AtomicReference<String> lastHash = getPlayerResourcePackHash(e);
                                     if (!hash.equals(lastHash.get())) {
-                                        if (isResourcePackDeclined(e))
+                                        if (!isResourcePackDeclined(e))
                                             setResourcePack(e, url, hash);
                                         lastHash.set(hash);
                                     }
