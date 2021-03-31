@@ -56,7 +56,7 @@ public class ResourcePackUtils {
                         }
                     }
                 }
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 EasyResourcePack.logger.log(Level.WARNING, "Failed to calculate hash", e);
                 return new PackResult(false, null, null, e.getMessage());
             }

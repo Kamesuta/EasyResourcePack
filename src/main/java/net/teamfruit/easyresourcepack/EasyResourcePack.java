@@ -6,6 +6,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,12 +15,11 @@ import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import javax.xml.bind.DatatypeConverter;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -51,7 +51,31 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
     }
 
     private AtomicReference<String> getPlayerResourcePackHash(Player player) {
-        return lastHash.computeIfAbsent(player.getPlayerProfile().getId(), id -> new AtomicReference<>());
+        return lastHash.computeIfAbsent(player.getUniqueId(), id -> new AtomicReference<>());
+    }
+
+    private void setResourcePack(Player player, String url, String hash) {
+        try {
+            player.setResourcePack(url, hash);
+        } catch (LinkageError e) {
+            player.setResourcePack(url, DatatypeConverter.parseHexBinary(hash));
+        }
+    }
+
+    private boolean hasResourcePack(Player player) {
+        try {
+            return player.hasResourcePack();
+        } catch (LinkageError e) {
+            return false;
+        }
+    }
+
+    private boolean isResourcePackDeclined(Player player) {
+        try {
+            return player.getResourcePackStatus() == PlayerResourcePackStatusEvent.Status.DECLINED;
+        } catch (LinkageError e) {
+            return false;
+        }
     }
 
     @EventHandler
@@ -68,8 +92,12 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    if (player.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
-                        player.setResourcePack(url, hash);
+                    try {
+                        if (player.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
+                            setResourcePack(player, url, hash);
+                    } catch (Throwable e) {
+                        logger.log(Level.WARNING, "Failed to process Login Event", e);
+                    }
                 }
             }.runTaskLaterAsynchronously(this, 4);
             lastHash.set(hash);
@@ -170,15 +198,23 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                     return true;
                 }
 
+                Stream<Entity> entityStream = null;
+                if (arg2 != null && !"".equals(arg2)) {
+                    try {
+                        entityStream = Bukkit.selectEntities(sender, arg2).stream();
+                    } catch (LinkageError e) {
+                        entityStream = Arrays.stream(CommandUtils.getTargets(sender, arg2));
+                    }
+                }
                 List<Player> targets;
-                if (arg2 == null) {
+                if (entityStream == null) {
                     if (!(sender instanceof Player)) {
                         sender.sendMessage(ChatColor.RED + "You must be a player");
                         return true;
                     }
                     targets = Collections.singletonList((Player) sender);
                 } else {
-                    targets = Bukkit.selectEntities(sender, arg2).stream()
+                    targets = entityStream
                             .filter(Player.class::isInstance)
                             .map(Player.class::cast)
                             .collect(Collectors.toList());
@@ -200,16 +236,21 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
-                        targets.forEach(e -> {
-                            if (finalForceResourcePack || !e.hasResourcePack()) {
-                                AtomicReference<String> lastHash = getPlayerResourcePackHash(e);
-                                if (!hash.equals(lastHash.get())) {
-                                    if (e.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
-                                        e.setResourcePack(url, hash);
-                                    lastHash.set(hash);
+                        try {
+                            targets.forEach(e -> {
+                                if (finalForceResourcePack || !hasResourcePack(e)) {
+                                    AtomicReference<String> lastHash = getPlayerResourcePackHash(e);
+                                    if (!hash.equals(lastHash.get())) {
+                                        if (isResourcePackDeclined(e))
+                                            setResourcePack(e, url, hash);
+                                        lastHash.set(hash);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        } catch (Throwable e) {
+                            logger.log(Level.WARNING, "Failed to apply resource pack", e);
+                            sender.sendMessage(ChatColor.RED + "Failed to apply resource pack");
+                        }
                     }
                 }.runTaskLaterAsynchronously(this, 4);
 
