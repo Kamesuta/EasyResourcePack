@@ -3,7 +3,6 @@ package net.teamfruit.easyresourcepack;
 import com.google.common.io.ByteStreams;
 import com.google.gson.Gson;
 
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.InputStream;
@@ -46,7 +45,7 @@ public class ResourcePackUtils {
 
                                         MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
                                         sha1.update(bytes);
-                                        String hash = new HexBinaryAdapter().marshal(sha1.digest());
+                                        String hash = DatatypeConverter.printHexBinary(sha1.digest());
 
                                         return new PackResult(true, meta, hash, null);
                                     }
