@@ -10,7 +10,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -78,7 +78,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onLogin(PlayerLoginEvent event) {
+    public void onLogin(PlayerJoinEvent event) {
         Configuration config = getConfig();
 
         String url = config.getString("packs.server-resourcepack.url");
@@ -266,46 +266,49 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length <= 1)
-            return (sender.hasPermission("easyresourcepack.manage")
-                    ? Stream.of("apply", "apply-if-absent", "add", "server-resourcepack", "remove")
-                    : Stream.of("apply", "apply-if-absent"))
-                    .filter(e -> e.startsWith(args[0])).collect(Collectors.toList());
+        switch (args.length) {
+            case 0:
+            case 1:
+                return (sender.hasPermission("easyresourcepack.manage")
+                        ? Stream.of("apply", "apply-if-absent", "add", "server-resourcepack", "remove")
+                        : Stream.of("apply", "apply-if-absent"))
+                        .filter(e -> e.startsWith(args[0])).collect(Collectors.toList());
+            case 2:
+                switch (args[0]) {
+                    case "add": {
+                        return Collections.singletonList("<new name>");
+                    }
 
-        else if (args.length == 2)
-            switch (args[0]) {
-                case "add": {
-                    return Collections.singletonList("<new name>");
+                    case "remove":
+                    case "server-resourcepack":
+                    case "apply-if-absent":
+                    case "apply": {
+                        Configuration config = getConfig();
+                        ConfigurationSection packs = config.getConfigurationSection("packs");
+                        if (packs == null)
+                            return Collections.emptyList();
+                        return packs.getKeys(false).stream()
+                                .filter(e -> e.startsWith(args[1])).collect(Collectors.toList());
+                    }
                 }
+                break;
+            case 3:
+                switch (args[0]) {
+                    case "add": {
+                        return Collections.singletonList("https://");
+                    }
 
-                case "remove":
-                case "server-resourcepack":
-                case "apply-if-absent":
-                case "apply": {
-                    Configuration config = getConfig();
-                    ConfigurationSection packs = config.getConfigurationSection("packs");
-                    if (packs == null)
+                    case "apply": {
+                        if (sender.hasPermission("easyresourcepack.other"))
+                            return Stream.concat(
+                                    Stream.of("@a", "@p", "@a[distance=.."),
+                                    Bukkit.getOnlinePlayers().stream().map(Player::getName)
+                            ).filter(e -> e.startsWith(args[2])).collect(Collectors.toList());
                         return Collections.emptyList();
-                    return packs.getKeys(false).stream()
-                            .filter(e -> e.startsWith(args[1])).collect(Collectors.toList());
+                    }
                 }
-            }
-
-        else
-            switch (args[0]) {
-                case "add": {
-                    return Collections.singletonList("https://");
-                }
-
-                case "apply": {
-                    if (sender.hasPermission("easyresourcepack.other"))
-                        return Stream.concat(
-                                Stream.of("@a", "@p", "@a[distance=.."),
-                                Bukkit.getOnlinePlayers().stream().map(Player::getName)
-                        ).filter(e -> e.startsWith(args[2])).collect(Collectors.toList());
-                    return Collections.emptyList();
-                }
-            }
+                break;
+        }
 
         return Collections.emptyList();
     }
