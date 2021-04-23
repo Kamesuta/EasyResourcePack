@@ -92,7 +92,7 @@ public final class EasyResourcePack extends JavaPlugin implements Listener {
                 @Override
                 public void run() {
                     try {
-                        if (player.getResourcePackStatus() != PlayerResourcePackStatusEvent.Status.DECLINED)
+                        if (isResourcePackDeclined(player))
                             setResourcePack(player, url, hash);
                     } catch (Throwable e) {
                         logger.log(Level.WARNING, "Failed to process Login Event", e);
